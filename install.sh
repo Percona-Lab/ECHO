@@ -100,11 +100,11 @@ else
   echo -e "  ECHO needs a Zoom OAuth Client ID to connect to your account."
   echo -e "  Let's check if your organization has already registered one."
   echo ""
-  ZOOM_DOMAIN=$(ask "Your Zoom domain (e.g. percona.zoom.us)" "")
+  ZOOM_DOMAIN=$(ask "Your Zoom domain (e.g. acme.zoom.us)" "")
 
   CLIENT_ID=""
   if [ -n "$ZOOM_DOMAIN" ]; then
-    # Extract org slug: "percona.zoom.us" -> "percona", "percona" -> "percona"
+    # Extract org slug: "acme.zoom.us" -> "acme", "acme" -> "acme"
     ORG_SLUG=$(echo "$ZOOM_DOMAIN" | sed 's/\.zoom\.us$//' | sed 's/^https:\/\///')
 
     # Look up in registry (try local first, then remote)
