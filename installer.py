@@ -121,18 +121,31 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
                     if ask_yn("Keep this Client ID?"):
                         return existing
 
-    info("ECHO needs a Zoom OAuth Client ID to connect to your account.")
+    if not ask_yn("Do you have a Zoom OAuth Client ID?", default=False):
+        print()
+        info("You need a Client ID from a Zoom OAuth app before ECHO can work.")
+        info("If you have Zoom admin access, create one yourself. Otherwise ask your Zoom admin.")
+        print()
+        info(f"{BOLD}How to create the Zoom OAuth app:{NC}")
+        info(f"  1. Go to https://marketplace.zoom.us > Develop > Build App")
+        info(f"  2. Select General App, set redirect URL: http://localhost:8090/callback")
+        info(f"  3. Add scopes: recording:read, user:read")
+        info(f"  4. Activate the app and copy the Client ID")
+        print()
+        info(f"Full instructions: https://github.com/Percona-Lab/ECHO#prerequisites")
+        return None
+
     info("Let's check if your organization has already registered one.")
     print()
 
-    zoom_domain = ask("Your Zoom domain (e.g. acme.zoom.us)", "")
+    org_slug = ask("Your Zoom subdomain (the prefix before .zoom.us, e.g. acme)", "")
     client_id = None
 
-    if zoom_domain:
-        # Extract org slug
-        org_slug = zoom_domain.replace("https://", "").replace(".zoom.us", "").strip()
+    if org_slug:
+        # Clean up in case they entered the full domain
+        org_slug = org_slug.replace("https://", "").replace(".zoom.us", "").strip()
 
-        # Look up in registry
+        # Look up in local registry
         registry_file = install_dir / "client_registry.json"
         if registry_file.exists():
             try:
@@ -166,22 +179,12 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
         if not client_id:
             warn(f"No registered Client ID found for {BOLD}{org_slug}{NC}")
             print()
-            info("Someone with Zoom admin access needs to create a General App (OAuth 2.0):")
-            info(f"{DIM}  1. Go to https://marketplace.zoom.us > Develop > Build App{NC}")
-            info(f"{DIM}  2. Select General App, set redirect URL: http://localhost:8090/callback{NC}")
-            info(f"{DIM}  3. Add scopes: recording:read, user:read{NC}")
-            info(f"{DIM}  4. Activate the app and copy the Client ID{NC}")
+            info("To register your org so others can skip this step,")
+            info("submit a PR adding your Client ID to client_registry.json.")
             print()
-            info("To register it for your whole org, submit a PR to client_registry.json")
-            info("so others in your organization can skip this step.")
-            print()
-            client_id = ask("Zoom OAuth Client ID (leave blank to configure later)", "")
-    else:
-        print()
-        info(f"{DIM}No domain entered. You can enter a Client ID directly instead.{NC}")
-        info(f"{DIM}Create a Zoom OAuth app at https://marketplace.zoom.us{NC}")
-        print()
-        client_id = ask("Zoom OAuth Client ID (leave blank to configure later)", "")
+
+    if not client_id:
+        client_id = ask("Zoom OAuth Client ID", "")
 
     if client_id:
         env_file.write_text(f"ZOOM_CLIENT_ID={client_id}\n")

@@ -33,7 +33,7 @@ The PKCE flow means the Client Secret stays in the Zoom admin console and never 
 
 ### Organization registry
 
-If your org has already set up the Zoom OAuth app, the installer will find the Client ID automatically when you enter your Zoom domain (e.g. `acme.zoom.us`).
+If your org has already set up the Zoom OAuth app, the installer will find the Client ID automatically when you enter your Zoom subdomain (e.g. `acme` from `acme.zoom.us`).
 
 To register your org's Client ID so others can skip this step, submit a PR adding your org to `client_registry.json`:
 
