@@ -19,6 +19,10 @@ load_dotenv()
 BASE_URL = "https://api.zoom.us/v2"
 
 
+class NotConfiguredError(Exception):
+    """Raised when ECHO is not yet configured or authenticated."""
+
+
 class ZoomConnector:
     """Handles Zoom API requests using user OAuth tokens."""
 
@@ -28,13 +32,20 @@ class ZoomConnector:
 
     def _load_or_fail(self) -> dict:
         """Load tokens, refreshing if needed."""
+        if not self.client_id:
+            raise NotConfiguredError(
+                "ZOOM_CLIENT_ID is not set.\n"
+                "Run the installer or add your Client ID to .env.\n"
+                "See: https://github.com/Percona-Lab/ECHO#prerequisites"
+            )
+
         if self._tokens and tokens_valid(self._tokens):
             return self._tokens
 
         tokens = load_tokens()
         if tokens is None:
-            raise RuntimeError(
-                "Not authenticated. Run: echo-login\n"
+            raise NotConfiguredError(
+                "Not authenticated. Run: uv run echo-login\n"
                 "This will open Zoom in your browser to authorize ECHO."
             )
         self._tokens = tokens

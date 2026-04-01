@@ -6,13 +6,27 @@ Part of the Alpine Toolkit.
 
 from __future__ import annotations
 
+import functools
 import re
 from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
 
 from .auth import load_tokens, tokens_valid
-from .connector import ZoomConnector
+from .connector import NotConfiguredError, ZoomConnector
+
+
+def _graceful(fn):
+    """Decorator that catches NotConfiguredError and returns a friendly message."""
+
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except NotConfiguredError as e:
+            return "**ECHO is not set up yet.**\n\n{}\n\nRun `auth_status` for details.".format(e)
+
+    return wrapper
 
 mcp = FastMCP(
     "ECHO",
@@ -83,12 +97,19 @@ async def auth_status() -> str:
 
     Returns the current auth status and instructions if not logged in.
     """
+    if not zoom.client_id:
+        return (
+            "**ECHO is not configured yet.**\n\n"
+            "Missing `ZOOM_CLIENT_ID`. Run the installer or add your Client ID to `.env`.\n\n"
+            "See: https://github.com/Percona-Lab/ECHO#prerequisites"
+        )
+
     tokens = load_tokens()
     if tokens is None:
         return (
             "**Not authenticated.**\n\n"
             "Run this in your terminal to log in:\n"
-            "```\necho-login\n```\n"
+            "```\nuv run echo-login\n```\n"
             "This will open Zoom in your browser to authorize ECHO."
         )
 
@@ -102,6 +123,7 @@ async def auth_status() -> str:
 
 
 @mcp.tool()
+@_graceful
 async def list_meetings(days: int = 30) -> str:
     """List recent Zoom meetings that have cloud recordings (and potentially transcripts).
 
@@ -142,6 +164,7 @@ async def list_meetings(days: int = 30) -> str:
 
 
 @mcp.tool()
+@_graceful
 async def get_transcript(meeting_id: str) -> str:
     """Get the full transcript for a specific Zoom meeting.
 
@@ -161,6 +184,7 @@ async def get_transcript(meeting_id: str) -> str:
 
 
 @mcp.tool()
+@_graceful
 async def search_transcripts(query: str, days: int = 30) -> str:
     """Search across Zoom meeting transcripts for a keyword or phrase.
 
@@ -220,6 +244,7 @@ async def search_transcripts(query: str, days: int = 30) -> str:
 
 
 @mcp.tool()
+@_graceful
 async def meeting_summary(meeting_id: str) -> str:
     """Get a structured summary of a Zoom meeting transcript.
 
