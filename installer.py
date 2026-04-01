@@ -188,10 +188,6 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
         ok("Client ID saved to .env")
         return client_id
     else:
-        # Copy example if no .env yet
-        example = install_dir / ".env.example"
-        if not env_file.exists() and example.exists():
-            env_file.write_text(example.read_text())
         warn("Skipped. Add your Client ID to .env later.")
         return None
 
