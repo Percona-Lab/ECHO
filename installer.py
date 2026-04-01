@@ -298,10 +298,13 @@ def step_done(install_dir: Path) -> None:
 # ── Main ────────────────────────────────────────────────────
 
 def main() -> None:
-    # When run via `curl | bash`, stdin is the pipe, not the terminal.
-    # Reopen stdin from /dev/tty so input() prompts work interactively.
-    if not sys.stdin.isatty():
+    # Always reopen stdin from /dev/tty. When run via `curl | bash`,
+    # stdin may be the pipe or an intermediary that doesn't block on input.
+    # Opening /dev/tty directly guarantees we read from the real terminal.
+    try:
         sys.stdin = open("/dev/tty")
+    except OSError:
+        pass  # Windows or no tty available, fall through to defaults
 
     banner()
     home = Path.home()
