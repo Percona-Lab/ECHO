@@ -19,4 +19,4 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 curl -fsSL "https://raw.githubusercontent.com/Percona-Lab/ECHO/main/installer.py" -o "$TMPDIR/installer.py"
-uv run --quiet --python 3.12 "$TMPDIR/installer.py"
+uv run --quiet --python 3.12 "$TMPDIR/installer.py" < /dev/tty
