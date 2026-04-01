@@ -1,0 +1,4 @@
+{
+  "_comment": "Zoom OAuth Client IDs by organization vanity domain. These are public identifiers, safe to share. Submit a PR to add your org.",
+  "orgs": {}
+}

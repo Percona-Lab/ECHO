@@ -86,6 +86,8 @@ echo -e "  ${GREEN}✓${NC} Dependencies installed"
 echo ""
 echo -e "${BOLD}Step 4: Zoom OAuth Setup${NC}"
 
+REGISTRY_URL="https://raw.githubusercontent.com/Percona-Lab/ECHO/main/client_registry.json"
+
 if [ -f .env ] && grep -q "ZOOM_CLIENT_ID=." .env 2>/dev/null; then
   EXISTING_ID=$(grep "ZOOM_CLIENT_ID=" .env | cut -d= -f2)
   echo -e "  ${GREEN}✓${NC} Client ID already configured: ${DIM}${EXISTING_ID:0:8}...${NC}"
@@ -95,18 +97,72 @@ if [ -f .env ] && grep -q "ZOOM_CLIENT_ID=." .env 2>/dev/null; then
     echo "ZOOM_CLIENT_ID=$CLIENT_ID" > .env
   fi
 else
-  echo -e "  You need a Zoom OAuth Client ID from a General App (OAuth 2.0)."
-  echo -e "  Create one at ${BOLD}https://marketplace.zoom.us${NC} or ask your Zoom admin."
+  echo -e "  ECHO needs a Zoom OAuth Client ID to connect to your account."
+  echo -e "  Let's check if your organization has already registered one."
   echo ""
-  echo -e "  ${DIM}App settings:${NC}"
-  echo -e "  ${DIM}  Redirect URL:  http://localhost:8090/callback${NC}"
-  echo -e "  ${DIM}  Scopes:        recording:read, user:read${NC}"
-  echo ""
-  CLIENT_ID=$(ask "Zoom OAuth Client ID (leave blank to configure later)" "")
-  if [ -n "$CLIENT_ID" ]; then
+  ZOOM_DOMAIN=$(ask "Your Zoom domain (e.g. percona.zoom.us)" "")
+
+  CLIENT_ID=""
+  if [ -n "$ZOOM_DOMAIN" ]; then
+    # Extract org slug: "percona.zoom.us" -> "percona", "percona" -> "percona"
+    ORG_SLUG=$(echo "$ZOOM_DOMAIN" | sed 's/\.zoom\.us$//' | sed 's/^https:\/\///')
+
+    # Look up in registry (try local first, then remote)
+    if [ -f "$INSTALL_DIR/client_registry.json" ]; then
+      REGISTRY_FILE="$INSTALL_DIR/client_registry.json"
+    else
+      REGISTRY_FILE=$(mktemp)
+      curl -fsSL "$REGISTRY_URL" -o "$REGISTRY_FILE" 2>/dev/null || true
+    fi
+
+    CLIENT_ID=$(uv run python -c "
+import json, sys
+try:
+    with open('$REGISTRY_FILE') as f:
+        registry = json.load(f)
+    cid = registry.get('orgs', {}).get('$ORG_SLUG', {}).get('client_id', '')
+    print(cid)
+except:
+    print('')
+" 2>/dev/null)
+
+    if [ -n "$CLIENT_ID" ]; then
+      ORG_NAME=$(uv run python -c "
+import json
+with open('$REGISTRY_FILE') as f:
+    registry = json.load(f)
+print(registry.get('orgs', {}).get('$ORG_SLUG', {}).get('name', '$ORG_SLUG'))
+" 2>/dev/null)
+      echo -e "  ${GREEN}✓${NC} Found registered Client ID for ${BOLD}${ORG_NAME}${NC}"
+      echo "ZOOM_CLIENT_ID=$CLIENT_ID" > .env
+      echo -e "  ${GREEN}✓${NC} Client ID saved to .env"
+    else
+      echo -e "  ${YELLOW}⚠${NC} No registered Client ID found for ${BOLD}${ORG_SLUG}${NC}"
+      echo ""
+      echo -e "  Someone with Zoom admin access needs to create a General App (OAuth 2.0):"
+      echo -e "  ${DIM}  1. Go to https://marketplace.zoom.us > Develop > Build App${NC}"
+      echo -e "  ${DIM}  2. Select General App, set redirect URL: http://localhost:8090/callback${NC}"
+      echo -e "  ${DIM}  3. Add scopes: recording:read, user:read${NC}"
+      echo -e "  ${DIM}  4. Activate the app and copy the Client ID${NC}"
+      echo ""
+      echo -e "  Once you have it, you can enter it now or add it to .env later."
+      echo -e "  To register it for your whole org, submit a PR to client_registry.json"
+      echo -e "  so others in your organization can skip this step."
+      echo ""
+      CLIENT_ID=$(ask "Zoom OAuth Client ID (leave blank to configure later)" "")
+    fi
+  else
+    echo ""
+    echo -e "  ${DIM}No domain entered. You can enter a Client ID directly instead.${NC}"
+    echo -e "  ${DIM}Create a Zoom OAuth app at https://marketplace.zoom.us${NC}"
+    echo ""
+    CLIENT_ID=$(ask "Zoom OAuth Client ID (leave blank to configure later)" "")
+  fi
+
+  if [ -n "$CLIENT_ID" ] && ! grep -q "ZOOM_CLIENT_ID=$CLIENT_ID" .env 2>/dev/null; then
     echo "ZOOM_CLIENT_ID=$CLIENT_ID" > .env
     echo -e "  ${GREEN}✓${NC} Client ID saved to .env"
-  else
+  elif [ -z "$CLIENT_ID" ]; then
     cp -n .env.example .env 2>/dev/null || true
     echo -e "  ${YELLOW}⚠${NC} Skipped. Add your Client ID to .env later."
   fi

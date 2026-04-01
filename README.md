@@ -31,6 +31,25 @@ You need a **Zoom OAuth Client ID** from a General App (OAuth 2.0). If you have 
 
 The PKCE flow means the Client Secret stays in the Zoom admin console and never needs to be shared.
 
+### Organization registry
+
+If your org has already set up the Zoom OAuth app, the installer will find the Client ID automatically when you enter your Zoom domain (e.g. `percona.zoom.us`).
+
+To register your org's Client ID so others can skip this step, submit a PR adding your org to `client_registry.json`:
+
+```json
+{
+  "orgs": {
+    "yourcompany": {
+      "name": "Your Company",
+      "client_id": "YOUR_CLIENT_ID_HERE"
+    }
+  }
+}
+```
+
+Client IDs are public identifiers, safe to commit.
+
 ## Tools
 
 | Tool | Description |
