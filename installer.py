@@ -298,6 +298,11 @@ def step_done(install_dir: Path) -> None:
 # ── Main ────────────────────────────────────────────────────
 
 def main() -> None:
+    # When run via `curl | bash`, stdin is the pipe, not the terminal.
+    # Reopen stdin from /dev/tty so input() prompts work interactively.
+    if not sys.stdin.isatty():
+        sys.stdin = open("/dev/tty")
+
     banner()
     home = Path.home()
     install_dir = step_install(home)
