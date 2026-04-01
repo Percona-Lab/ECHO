@@ -276,6 +276,24 @@ def _command_exists(cmd: str) -> bool:
         return False
 
 
+# ── Done (no Client ID) ─────────────────────────────────────
+
+def step_done_no_client(install_dir: Path) -> None:
+    print()
+    print(f"  {YELLOW}{BOLD}ECHO partially installed.{NC}")
+    print()
+    info("ECHO is downloaded and dependencies are ready, but it needs a")
+    info("Zoom OAuth Client ID to work. Once you have one, come back and run:")
+    print()
+    info(f"  {BOLD}cd {install_dir} && curl -fsSL https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh | bash{NC}")
+    print()
+    info("The installer will detect the existing installation and pick up")
+    info("where you left off. You just need to enter the Client ID.")
+    print()
+    info(f"{DIM}To create a Zoom OAuth app: https://github.com/Percona-Lab/ECHO#prerequisites{NC}")
+    print()
+
+
 # ── Done ────────────────────────────────────────────────────
 
 def step_done(install_dir: Path) -> None:
@@ -311,6 +329,12 @@ def main() -> None:
     install_dir = step_install(home)
     step_deps(install_dir)
     client_id = step_zoom_oauth(install_dir)
+
+    if not client_id:
+        # Can't continue without a Client ID. Tell them how to resume.
+        step_done_no_client(install_dir)
+        return
+
     step_auth(install_dir, client_id)
     step_configure_client(install_dir)
     step_done(install_dir)
