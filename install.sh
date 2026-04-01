@@ -3,9 +3,12 @@
 # Usage: curl -fsSL https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh | bash
 set -euo pipefail
 
-# Re-exec with /dev/tty if piped (enables interactive prompts via curl | bash)
+# When piped via curl | bash, stdin is the script content, not the terminal.
+# Save to a temp file and re-exec with stdin from /dev/tty.
 if [ ! -t 0 ]; then
-  exec bash <(curl -fsSL "https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh") </dev/tty
+  TMPSCRIPT=$(mktemp)
+  curl -fsSL "https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh" > "$TMPSCRIPT"
+  exec bash "$TMPSCRIPT" < /dev/tty
 fi
 
 GREEN='\033[0;32m'
@@ -26,8 +29,8 @@ ask() {
   local prompt="$1" default="$2"
   local display=""
   [ -n "$default" ] && display=" [$default]"
-  printf "  %s%s: " "$prompt" "$display" > /dev/tty
-  read -r value < /dev/tty
+  printf "  %s%s: " "$prompt" "$display"
+  read -r value
   echo "${value:-$default}"
 }
 
@@ -35,8 +38,8 @@ ask_yn() {
   local prompt="$1" default="${2:-y}"
   local hint="Y/n"
   [ "$default" = "n" ] && hint="y/N"
-  printf "  %s (%s): " "$prompt" "$hint" > /dev/tty
-  read -r value < /dev/tty
+  printf "  %s (%s): " "$prompt" "$hint"
+  read -r value
   value="${value:-$default}"
   case "$value" in
     [yY]|[yY]es) return 0 ;;
