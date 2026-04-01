@@ -26,8 +26,8 @@ ask() {
   local prompt="$1" default="$2"
   local display=""
   [ -n "$default" ] && display=" [$default]"
-  printf "  %s%s: " "$prompt" "$display"
-  read -r value
+  printf "  %s%s: " "$prompt" "$display" > /dev/tty
+  read -r value < /dev/tty
   echo "${value:-$default}"
 }
 
@@ -35,8 +35,8 @@ ask_yn() {
   local prompt="$1" default="${2:-y}"
   local hint="Y/n"
   [ "$default" = "n" ] && hint="y/N"
-  printf "  %s (%s): " "$prompt" "$hint"
-  read -r value
+  printf "  %s (%s): " "$prompt" "$hint" > /dev/tty
+  read -r value < /dev/tty
   value="${value:-$default}"
   case "$value" in
     [yY]|[yY]es) return 0 ;;
