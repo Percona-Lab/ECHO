@@ -83,10 +83,10 @@ def step_install(home: Path) -> Path:
 
     if (install_dir / ".git").exists():
         info(f"{YELLOW}Existing installation found. Updating...{NC}")
-        run(["git", "-C", str(install_dir), "pull", "--ff-only"])
+        run(["git", "-C", str(install_dir), "pull", "--ff-only"], capture_output=True)
     else:
         info("Cloning ECHO...")
-        run(["git", "clone", "https://github.com/Percona-Lab/ECHO.git", str(install_dir)])
+        run(["git", "clone", "--quiet", "https://github.com/Percona-Lab/ECHO.git", str(install_dir)])
 
     ok(f"Installed at {install_dir}")
     return install_dir
