@@ -82,15 +82,8 @@ def step_install(home: Path) -> Path:
     install_dir = Path(ask("Install directory", default))
 
     if (install_dir / ".git").exists():
-        if ask_yn("Existing installation found. Remove and reinstall?"):
-            import shutil
-            shutil.rmtree(install_dir)
-            info("Removed old installation.")
-            info("Cloning ECHO...")
-            run(["git", "clone", "--quiet", "https://github.com/Percona-Lab/ECHO.git", str(install_dir)])
-        else:
-            info("Updating existing installation...")
-            run(["git", "-C", str(install_dir), "pull", "--ff-only"], capture_output=True)
+        info(f"{YELLOW}Existing installation found. Updating...{NC}")
+        run(["git", "-C", str(install_dir), "pull", "--ff-only"], capture_output=True)
     else:
         info("Cloning ECHO...")
         run(["git", "clone", "--quiet", "https://github.com/Percona-Lab/ECHO.git", str(install_dir)])
