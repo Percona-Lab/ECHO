@@ -113,11 +113,13 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
     # Check for existing config
     if env_file.exists():
         for line in env_file.read_text().splitlines():
-            if line.startswith("ZOOM_CLIENT_ID=") and len(line.split("=", 1)[1].strip()) > 0:
+            if line.startswith("ZOOM_CLIENT_ID="):
                 existing = line.split("=", 1)[1].strip()
-                ok(f"Client ID already configured: {DIM}{existing[:8]}...{NC}")
-                if ask_yn("Keep this Client ID?"):
-                    return existing
+                # Skip empty values and placeholder text
+                if existing and not existing.startswith("your_"):
+                    ok(f"Client ID already configured: {DIM}{existing[:8]}...{NC}")
+                    if ask_yn("Keep this Client ID?"):
+                        return existing
 
     info("ECHO needs a Zoom OAuth Client ID to connect to your account.")
     info("Let's check if your organization has already registered one.")
