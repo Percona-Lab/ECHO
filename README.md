@@ -1,9 +1,35 @@
-# ECHO — Explore Calls, Hearings & Observations
+# ECHO - Explore Calls, Hearings & Observations
 
-MCP server for searching your Zoom meeting transcripts. Part of the **Alpine Toolkit**.
+MCP server for searching your Zoom meeting transcripts from any MCP-compatible AI tool. Part of the [Alpine Toolkit](https://github.com/Percona-Lab).
 
-Uses OAuth 2.0 + PKCE so **no secrets ever touch your machine** — you log in with
-your own Zoom account and ECHO can only see your recordings.
+Uses OAuth 2.0 + PKCE so no secrets ever touch your machine. You log in with your own Zoom account and ECHO can only see your recordings.
+
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh | bash
+```
+
+The installer will guide you through:
+1. Cloning the repo and installing dependencies
+2. Configuring your Zoom OAuth Client ID
+3. Authenticating with your Zoom account
+4. Auto-detecting and configuring your AI client (Claude Code, Claude Desktop)
+
+## Prerequisites
+
+You need a **Zoom OAuth Client ID** from a General App (OAuth 2.0). If you have admin or owner access to your Zoom account, you can create this yourself. If not, ask your Zoom admin.
+
+### Creating a Zoom OAuth App
+
+1. Go to [marketplace.zoom.us](https://marketplace.zoom.us) > **Develop** > **Build App**
+2. Select **General App** (OAuth 2.0)
+3. Set redirect URL to `http://localhost:8090/callback`
+4. Add scopes: `recording:read` and `user:read`
+5. Activate the app
+6. Copy the **Client ID** (you do not need the Client Secret)
+
+The PKCE flow means the Client Secret stays in the Zoom admin console and never needs to be shared.
 
 ## Tools
 
@@ -12,48 +38,45 @@ your own Zoom account and ECHO can only see your recordings.
 | `auth_status` | Check if ECHO is connected to your Zoom account |
 | `list_meetings` | List your recent meetings with cloud recordings |
 | `get_transcript` | Get the full transcript for a specific meeting |
-| `search_transcripts` | Search across your meeting transcripts by keyword/phrase |
-| `meeting_summary` | Get participants and condensed conversation flow |
+| `search_transcripts` | Search across your meeting transcripts by keyword or phrase |
+| `meeting_summary` | Get participants and a condensed conversation flow |
 
-## Setup
+## CLI Commands
 
-### 1. IT creates a Zoom OAuth App (one-time)
+| Command | Description |
+|---------|-------------|
+| `uv run echo-login` | Authorize ECHO with your Zoom account |
+| `uv run echo-logout` | Remove stored tokens |
+| `uv run echo-mcp` | Run the MCP server |
 
-Ask IT to create a **General App** (OAuth) in the Zoom Marketplace:
+## Security Model
 
-1. Go to [Zoom Marketplace](https://marketplace.zoom.us/) → **Develop** → **Build App**
-2. Choose **General App** (OAuth 2.0)
-3. Set redirect URL to: `http://localhost:8090/callback`
-4. Under **Scopes**, add:
-   - `recording:read` — read user's own recordings
-   - `user:read` — read user's own profile
-5. Enable PKCE (if the option is shown)
-6. Activate the app
-7. Share the **Client ID** with you (this is a public identifier, not a secret)
+ECHO is designed so that no org-level secrets ever touch your machine.
 
-> **IT keeps the Client Secret.** It never leaves the Zoom admin console.
-> The PKCE flow means the user's machine never needs it.
+| What | Where | Who controls it |
+|------|-------|-----------------|
+| Client Secret | Zoom admin console | Zoom admin (never shared) |
+| Client ID | Your `.env` file | You (public identifier, safe to share) |
+| OAuth tokens | `~/.echo/tokens.json` (mode 600) | You (scoped to your account only) |
 
-### 2. Configure
+How it works:
+- You authenticate by signing into Zoom in your browser (OAuth + PKCE)
+- ECHO uses `/users/me/` endpoints, so it can only see your recordings
+- Tokens auto-refresh so you stay logged in without re-authenticating
 
-```bash
-cd /path/to/ECHO
-cp .env.example .env
-# Paste the Client ID from IT
-```
+## Manual Setup
 
-### 3. Authenticate (one-time)
+If you prefer not to use the installer:
 
 ```bash
-uv run echo-login
+git clone https://github.com/Percona-Lab/ECHO.git
+cd ECHO
+uv sync
+cp .env.example .env        # Add your Zoom Client ID
+uv run echo-login            # Authenticate with Zoom
 ```
 
-This opens Zoom in your browser. You sign in with **your** account and authorize
-ECHO. Your personal tokens are saved to `~/.echo/tokens.json` (mode 600).
-
-### 4. Add to Claude Code
-
-Add to `~/.claude/settings.json` or your project `.mcp.json`:
+Then add to your MCP client config:
 
 ```json
 {
@@ -67,44 +90,6 @@ Add to `~/.claude/settings.json` or your project `.mcp.json`:
 }
 ```
 
-### 5. Use it
-
-```
-> search my Zoom calls for "quarterly roadmap"
-> list my recent meetings
-> get the transcript from meeting 12345678
-> summarize what was discussed in meeting 12345678
-```
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `uv run echo-login` | Authorize ECHO with your Zoom account |
-| `uv run echo-logout` | Remove stored tokens |
-| `uv run echo-mcp` | Run the MCP server |
-
-## Security Model
-
-```
-┌──────────────┐     ┌───────────────┐     ┌──────────────┐
-│  Zoom Admin   │     │  Your Machine  │     │   Zoom API   │
-│  (IT)         │     │               │     │              │
-│               │     │  Client ID    │────▶│  /authorize  │
-│  Client ID ──────▶  │  (public)     │     │              │
-│  Client Secret│     │               │◀────│  auth code   │
-│  (stays here) │     │  PKCE verifier│────▶│  /token      │
-│               │     │               │◀────│  user token  │
-│               │     │  ~/.echo/     │────▶│  /users/me/  │
-│               │     │  tokens.json  │     │  recordings  │
-└──────────────┘     └───────────────┘     └──────────────┘
-```
-
-- **Client Secret** never leaves IT's Zoom admin console
-- **Your tokens** are scoped to your Zoom account only
-- **`/users/me/`** endpoint means ECHO can only see your recordings
-- **Tokens** are stored with `600` permissions (owner-read only)
-
 ## Development
 
 ```bash
@@ -115,5 +100,5 @@ npx @modelcontextprotocol/inspector uv run echo-mcp      # MCP Inspector
 
 ## Built with
 
-- [FastMCP](https://github.com/jlowin/fastmcp) — Python MCP framework
-- [CAIRN](https://github.com/Percona-Lab/CAIRN) — Alpine Toolkit scaffolder
+- [FastMCP](https://github.com/jlowin/fastmcp) - Python MCP framework
+- [CAIRN](https://github.com/Percona-Lab/CAIRN) - Alpine Toolkit scaffolder
