@@ -104,6 +104,36 @@ def step_deps(install_dir: Path) -> None:
 
 # ── Step 3: Zoom OAuth ──────────────────────────────────────
 
+def _resolve_registry(org_slug: str) -> dict | None:
+    """Look up an org in the registry and return {client_id, bff_url} or None."""
+    try:
+        import httpx
+        resp = httpx.get(
+            "https://raw.githubusercontent.com/Percona-Lab/ECHO/main/client_registry.json",
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            return None
+        entry = resp.json().get("orgs", {}).get(org_slug)
+        if entry is None:
+            return None
+        if isinstance(entry, str):
+            return {"client_id": entry, "bff_url": None}
+        return {
+            "client_id": entry.get("client_id", ""),
+            "bff_url": entry.get("bff_url"),
+        }
+    except Exception:
+        return None
+
+
+def _write_env(env_file: Path, settings: dict) -> None:
+    """Write key=value lines to .env, preserving order."""
+    env_file.write_text(
+        "".join(f"{k}={v}\n" for k, v in settings.items() if v is not None)
+    )
+
+
 def step_zoom_oauth(install_dir: Path) -> str | None:
     print()
     print(f"{BOLD}Step 3: Zoom OAuth Setup{NC}")
@@ -112,89 +142,78 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
 
     # Check for existing config
     if env_file.exists():
+        existing = {}
         for line in env_file.read_text().splitlines():
-            if line.startswith("ZOOM_CLIENT_ID="):
-                existing = line.split("=", 1)[1].strip()
-                # Skip empty values and placeholder text
-                if existing and not existing.startswith("your_"):
-                    ok(f"Client ID already configured: {DIM}{existing[:8]}...{NC}")
-                    if ask_yn("Keep this Client ID?"):
-                        return existing
+            if "=" in line:
+                k, v = line.split("=", 1)
+                existing[k.strip()] = v.strip()
+        if existing.get("ZOOM_SUBDOMAIN") or (
+            existing.get("ZOOM_CLIENT_ID")
+            and not existing["ZOOM_CLIENT_ID"].startswith("your_")
+        ):
+            summary = existing.get("ZOOM_SUBDOMAIN") or (existing.get("ZOOM_CLIENT_ID", "")[:8] + "...")
+            ok(f"ECHO already configured for: {DIM}{summary}{NC}")
+            if ask_yn("Keep existing config?"):
+                return existing.get("ZOOM_CLIENT_ID") or existing.get("ZOOM_SUBDOMAIN")
 
-    # First, check if their org already has a registered Client ID
+    # Ask for Zoom subdomain and look up in registry
     org_slug = ask("Your Zoom subdomain (the prefix before .zoom.us, e.g. acme)", "")
-    client_id = None
+
+    settings: dict[str, str] = {}
 
     if org_slug:
         # Clean up in case they entered the full domain
-        org_slug = org_slug.replace("https://", "").replace(".zoom.us", "").strip()
+        org_slug = org_slug.replace("https://", "").replace(".zoom.us", "").strip().lower()
+        entry = _resolve_registry(org_slug)
 
-        # Look up in local registry
-        registry_file = install_dir / "client_registry.json"
-        if registry_file.exists():
-            try:
-                registry = json.loads(registry_file.read_text())
-                entry = registry.get("orgs", {}).get(org_slug, {})
-                client_id = entry.get("client_id", "")
-                org_name = entry.get("name", org_slug)
-                if client_id:
-                    ok(f"Found registered Client ID for {BOLD}{org_name}{NC}")
-            except (json.JSONDecodeError, KeyError):
-                pass
+        if entry and entry["client_id"]:
+            ok(f"Found registered config for {BOLD}{org_slug}{NC}")
+            # Store the subdomain; the server resolves client_id + bff_url
+            # from the registry at runtime (so future registry updates flow
+            # through without reinstall).
+            settings["ZOOM_SUBDOMAIN"] = org_slug
+            _write_env(env_file, settings)
+            ok("Config saved to .env")
+            return org_slug
 
-        if not client_id:
-            # Try remote registry in case local is outdated
-            try:
-                import httpx
-                resp = httpx.get(
-                    "https://raw.githubusercontent.com/Percona-Lab/ECHO/main/client_registry.json",
-                    timeout=5,
-                )
-                if resp.status_code == 200:
-                    registry = resp.json()
-                    entry = registry.get("orgs", {}).get(org_slug, {})
-                    client_id = entry.get("client_id", "")
-                    org_name = entry.get("name", org_slug)
-                    if client_id:
-                        ok(f"Found registered Client ID for {BOLD}{org_name}{NC}")
-            except Exception:
-                pass
+        warn(f"No registered config found for {BOLD}{org_slug}{NC}")
 
-        if not client_id:
-            warn(f"No registered Client ID found for {BOLD}{org_slug}{NC}")
+    # Registry miss — ask if they have a Client ID
+    print()
+    if ask_yn("Do you have a Zoom OAuth Client ID?", default=False):
+        client_id = ask("Zoom OAuth Client ID", "")
+        if client_id:
+            settings["ZOOM_CLIENT_ID"] = client_id
+            # Without a registered BFF, the client will try to contact Zoom
+            # directly which requires ZOOM_CLIENT_SECRET too.
+            client_secret = ask(
+                "Zoom OAuth Client Secret (required without a registered BFF)",
+                "",
+            )
+            if client_secret:
+                settings["ZOOM_CLIENT_SECRET"] = client_secret
+            _write_env(env_file, settings)
+            ok("Config saved to .env")
+            return client_id
 
-    # If registry didn't find one, ask if they have one
-    if not client_id:
-        print()
-        if ask_yn("Do you have a Zoom OAuth Client ID?", default=False):
-            client_id = ask("Zoom OAuth Client ID", "")
-        else:
-            print()
-            info("You need a Client ID from a Zoom OAuth app before ECHO can work.")
-            info("If you have Zoom admin access, create one yourself. Otherwise ask your Zoom admin.")
-            print()
-            info(f"{BOLD}How to create the Zoom OAuth app:{NC}")
-            info(f"  1. Go to https://marketplace.zoom.us > Develop > Build App")
-            info(f"  2. Select General App, set redirect URL: http://localhost:8090/callback")
-            info(f"  3. Under Scopes, choose User-managed and add:")
-            info(f"     cloud_recording:read:content")
-            info(f"     cloud_recording:read:list_user_recordings")
-            info(f"     user:read:user")
-            info(f"  4. Activate the app and copy the Client ID")
-            print()
-            info(f"Full instructions: https://github.com/Percona-Lab/ECHO#prerequisites")
-            print()
-            info("To register your org so others can skip this step,")
-            info("submit a PR adding your Client ID to client_registry.json.")
-            return None
-
-    if client_id:
-        env_file.write_text(f"ZOOM_CLIENT_ID={client_id}\n")
-        ok("Client ID saved to .env")
-        return client_id
-    else:
-        warn("Skipped. Add your Client ID to .env later.")
-        return None
+    print()
+    info("You need a Client ID from a Zoom OAuth app before ECHO can work.")
+    info("If you have Zoom admin access, create one yourself. Otherwise ask your Zoom admin.")
+    print()
+    info(f"{BOLD}How to create the Zoom OAuth app:{NC}")
+    info(f"  1. Go to https://marketplace.zoom.us > Develop > Build App")
+    info(f"  2. Select General App, set redirect URL: http://localhost:8090/callback")
+    info(f"  3. Under Scopes, choose User-managed and add:")
+    info(f"     cloud_recording:read:content")
+    info(f"     cloud_recording:read:list_user_recordings")
+    info(f"     user:read:user")
+    info(f"  4. Activate the app and copy the Client ID")
+    print()
+    info(f"Full instructions: https://github.com/Percona-Lab/ECHO#prerequisites")
+    print()
+    info("To register your org so others can skip this step,")
+    info("submit a PR adding your Client ID to client_registry.json.")
+    return None
 
 
 # ── Step 4: Authenticate ────────────────────────────────────
