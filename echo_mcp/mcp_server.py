@@ -97,27 +97,25 @@ async def auth_status() -> str:
 
     Returns the current auth status and instructions if not logged in.
     """
-    if not zoom.client_id:
-        return (
-            "**ECHO is not configured yet.**\n\n"
-            "Missing `ZOOM_CLIENT_ID`. Run the installer or add your Client ID to `.env`.\n\n"
-            "See: https://github.com/Percona-Lab/ECHO#prerequisites"
-        )
+    try:
+        _ = zoom.client_id  # Triggers lazy resolution
+    except NotConfiguredError as e:
+        return f"**ECHO is not configured yet.**\n\n{e}"
 
     tokens = load_tokens()
     if tokens is None:
         return (
             "**Not authenticated.**\n\n"
             "Run this in your terminal to log in:\n"
-            "```\nuv run echo-login\n```\n"
+            "```\necho-login\n```\n"
             "This will open Zoom in your browser to authorize ECHO."
         )
 
     if tokens_valid(tokens):
-        return "**Authenticated** — ECHO is connected to your Zoom account."
+        return "**Authenticated** - ECHO is connected to your Zoom account."
     else:
         return (
-            "**Token expired** — ECHO will auto-refresh on the next request.\n"
+            "**Token expired** - ECHO will auto-refresh on the next request.\n"
             "If that fails, run `echo-login` to re-authenticate."
         )
 

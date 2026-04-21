@@ -6,15 +6,28 @@ Uses OAuth 2.0 + PKCE so no secrets ever touch your machine. You log in with you
 
 ## Install
 
+Pick the path that matches your AI tool.
+
+### Claude Desktop / Cowork (recommended for non-technical users)
+
+1. Download the latest `echo.dxt` from [Releases](https://github.com/Percona-Lab/ECHO/releases)
+2. Double-click it
+3. Enter your Zoom subdomain (e.g. `acme` for `acme.zoom.us`) and click Install
+4. Run the `auth_status` tool once — it will open Zoom to authorize ECHO
+
+That's it. No terminal, no cloning, no dependencies to manage.
+
+### Claude Code / other MCP clients
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Percona-Lab/ECHO/main/install.sh | bash
 ```
 
 The installer will guide you through:
 1. Cloning the repo and installing dependencies
-2. Configuring your Zoom OAuth Client ID
+2. Configuring your Zoom OAuth Client ID (or using the registry)
 3. Authenticating with your Zoom account
-4. Auto-detecting and configuring your AI client (Claude Code, Claude Desktop)
+4. Auto-detecting and configuring your AI client
 
 ## Prerequisites
 

@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-import os
 import sys
 
 from dotenv import load_dotenv
 
 
 def _get_client_id() -> str:
+    """Resolve Client ID from env or registry."""
+    from .registry import resolve_client_id, RegistryError
+
     load_dotenv()
-    client_id = os.environ.get("ZOOM_CLIENT_ID", "")
-    if not client_id:
-        print("Error: ZOOM_CLIENT_ID not set.")
-        print("Add it to your .env file or set the environment variable.")
-        print("(Your IT team provides this — it's a public app identifier, not a secret.)")
+    try:
+        return resolve_client_id()
+    except RegistryError as e:
+        print(f"Error: {e}")
         sys.exit(1)
-    return client_id
 
 
 def login_cli():
@@ -24,7 +24,7 @@ def login_cli():
     from .auth import login
 
     client_id = _get_client_id()
-    print("ECHO — Explore Calls, Hearings & Observations")
+    print("ECHO - Explore Calls, Hearings & Observations")
     print("=" * 48)
     try:
         login(client_id)

@@ -1,0 +1,78 @@
+{
+  "dxt_version": "0.1",
+  "name": "echo",
+  "display_name": "ECHO — Zoom Transcript Search",
+  "version": "0.1.0",
+  "description": "Search your Zoom meeting transcripts with natural language from any MCP-compatible AI tool.",
+  "long_description": "ECHO connects your Zoom cloud recordings to AI assistants via MCP. After a one-time OAuth login, you can ask questions like 'what did we decide in the Q3 planning call?' and get answers drawn from your own meeting transcripts. Tokens stay on your machine; nothing is hosted remotely.",
+  "author": {
+    "name": "Percona Labs",
+    "url": "https://github.com/Percona-Lab/ECHO"
+  },
+  "homepage": "https://github.com/Percona-Lab/ECHO",
+  "documentation": "https://github.com/Percona-Lab/ECHO#readme",
+  "support": "https://github.com/Percona-Lab/ECHO/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "python",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "${__dirname}/server/main.py"
+      ],
+      "env": {
+        "ZOOM_SUBDOMAIN": "${user_config.subdomain}",
+        "ZOOM_CLIENT_ID": "${user_config.client_id}",
+        "PYTHONPATH": "${__dirname}/server/lib"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "auth_status",
+      "description": "Check if ECHO is authenticated with Zoom."
+    },
+    {
+      "name": "list_meetings",
+      "description": "List recent Zoom meetings that have cloud recordings."
+    },
+    {
+      "name": "get_transcript",
+      "description": "Fetch the full transcript for a specific meeting."
+    },
+    {
+      "name": "search_transcripts",
+      "description": "Search across recent transcripts for keywords or topics."
+    },
+    {
+      "name": "meeting_summary",
+      "description": "Get a structured summary of a meeting."
+    }
+  ],
+  "keywords": [
+    "zoom",
+    "transcripts",
+    "meetings",
+    "search",
+    "oauth"
+  ],
+  "license": "Apache-2.0",
+  "user_config": {
+    "subdomain": {
+      "type": "string",
+      "title": "Zoom subdomain",
+      "description": "The prefix before .zoom.us (e.g. for acme.zoom.us, enter 'acme'). ECHO will look up your org's OAuth Client ID automatically from the public registry.",
+      "required": true,
+      "default": ""
+    },
+    "client_id": {
+      "type": "string",
+      "title": "Zoom OAuth Client ID (optional)",
+      "description": "Only needed if your org isn't in the ECHO registry yet. Ask your Zoom admin to create a User-managed OAuth General App and share the Client ID (it's a public identifier, not a secret).",
+      "required": false,
+      "sensitive": false,
+      "default": ""
+    }
+  }
+}

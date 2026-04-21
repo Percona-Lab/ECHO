@@ -13,6 +13,7 @@ import httpx
 from dotenv import load_dotenv
 
 from .auth import load_tokens, tokens_valid, refresh_access_token
+from .registry import resolve_client_id, RegistryError
 
 load_dotenv()
 
@@ -27,17 +28,23 @@ class ZoomConnector:
     """Handles Zoom API requests using user OAuth tokens."""
 
     def __init__(self) -> None:
-        self.client_id = os.environ.get("ZOOM_CLIENT_ID", "")
+        self._client_id: str | None = None
         self._tokens: dict | None = None
+
+    @property
+    def client_id(self) -> str:
+        """Lazily resolve the Client ID from env or registry."""
+        if self._client_id is None:
+            try:
+                self._client_id = resolve_client_id()
+            except RegistryError as e:
+                raise NotConfiguredError(str(e))
+        return self._client_id
 
     def _load_or_fail(self) -> dict:
         """Load tokens, refreshing if needed."""
-        if not self.client_id:
-            raise NotConfiguredError(
-                "ZOOM_CLIENT_ID is not set.\n"
-                "Run the installer or add your Client ID to .env.\n"
-                "See: https://github.com/Percona-Lab/ECHO#prerequisites"
-            )
+        # Trigger client_id resolution (may raise NotConfiguredError)
+        _ = self.client_id
 
         if self._tokens and tokens_valid(self._tokens):
             return self._tokens
@@ -45,8 +52,8 @@ class ZoomConnector:
         tokens = load_tokens()
         if tokens is None:
             raise NotConfiguredError(
-                "Not authenticated. Run: uv run echo-login\n"
-                "This will open Zoom in your browser to authorize ECHO."
+                "Not authenticated yet. Run `echo-login` in your terminal,\n"
+                "or ask ECHO to authenticate on your next tool call."
             )
         self._tokens = tokens
         return tokens
