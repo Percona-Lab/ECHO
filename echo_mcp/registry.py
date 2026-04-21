@@ -72,12 +72,41 @@ def get_registry(force_refresh: bool = False) -> dict:
     return registry
 
 
+def _lookup_org(subdomain: str) -> dict | None:
+    """Look up an org entry in the registry.
+
+    Registry entries can be either a bare string (just client_id) or a
+    dict with {client_id, bff_url}. Returns a normalized dict or None.
+    """
+    try:
+        registry = get_registry()
+    except Exception as e:
+        raise RegistryError(
+            f"Could not fetch the ECHO client registry: {e}\n"
+            f"Check your internet connection or set ZOOM_CLIENT_ID manually."
+        )
+    orgs = registry.get("orgs", {})
+    entry = orgs.get(subdomain)
+    if entry is None:
+        return None
+    if isinstance(entry, str):
+        return {"client_id": entry, "bff_url": None}
+    return {
+        "client_id": entry.get("client_id", ""),
+        "bff_url": entry.get("bff_url"),
+    }
+
+
 def resolve_client_id() -> str:
     """Resolve the Zoom OAuth Client ID.
 
     Priority:
     1. ZOOM_CLIENT_ID env var (explicit override)
     2. Registry lookup via ZOOM_SUBDOMAIN env var
+
+    Also sets ECHO_BFF_URL in the process environment if the registry
+    entry for the org includes a bff_url and no explicit ECHO_BFF_URL is
+    already set.
 
     Raises RegistryError with guidance if neither works.
     """
@@ -93,17 +122,12 @@ def resolve_client_id() -> str:
         subdomain = subdomain.replace("https://", "").replace("http://", "")
         subdomain = subdomain.split(".")[0]
 
-        try:
-            registry = get_registry()
-        except Exception as e:
-            raise RegistryError(
-                f"Could not fetch the ECHO client registry: {e}\n"
-                f"Check your internet connection or set ZOOM_CLIENT_ID manually."
-            )
-
-        orgs = registry.get("orgs", {})
-        if subdomain in orgs:
-            return orgs[subdomain]
+        entry = _lookup_org(subdomain)
+        if entry and entry["client_id"]:
+            # Apply the BFF URL from the registry if the user hasn't set one
+            if entry.get("bff_url") and not os.environ.get("ECHO_BFF_URL"):
+                os.environ["ECHO_BFF_URL"] = entry["bff_url"]
+            return entry["client_id"]
 
         raise RegistryError(
             f"Your org '{subdomain}' is not in the ECHO registry yet.\n\n"

@@ -37,6 +37,15 @@ TOKEN_FILE = TOKEN_DIR / "tokens.json"
 SCOPES = "cloud_recording:read:content cloud_recording:read:list_user_recordings user:read:user"
 
 
+def _bff_url() -> str | None:
+    """The BFF base URL, if one is configured. If set, token exchange goes
+    through the BFF (which holds the Zoom client_secret) instead of Zoom
+    directly. Setting this avoids having to distribute the secret to users.
+    """
+    url = os.environ.get("ECHO_BFF_URL", "").rstrip("/")
+    return url or None
+
+
 def _generate_pkce() -> tuple[str, str]:
     """Generate PKCE code_verifier and code_challenge."""
     verifier = secrets.token_urlsafe(64)[:128]
@@ -73,22 +82,37 @@ def tokens_valid(tokens: dict) -> bool:
 async def refresh_access_token(client_id: str, tokens: dict) -> dict:
     """Use the refresh token to get a new access token.
 
-    Zoom supports PKCE public clients — no client_secret needed for refresh.
+    Zoom requires client_secret even with PKCE, so we forward the refresh
+    through the BFF (which holds the secret). If no BFF is configured,
+    attempt a direct call (will only succeed if ZOOM_CLIENT_SECRET is set
+    in the environment, which is not recommended).
     """
     refresh_token = tokens.get("refresh_token")
     if not refresh_token:
         raise RuntimeError("No refresh token available. Please run: echo-login")
 
+    bff = _bff_url()
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(
-            ZOOM_TOKEN_URL,
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": client_id,
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        if bff:
+            resp = await client.post(
+                f"{bff}/refresh",
+                json={
+                    "client_id": client_id,
+                    "refresh_token": refresh_token,
+                },
+            )
+        else:
+            client_secret = os.environ.get("ZOOM_CLIENT_SECRET", "")
+            resp = await client.post(
+                ZOOM_TOKEN_URL,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
         resp.raise_for_status()
         new_tokens = resp.json()
         _save_tokens(new_tokens)
@@ -182,21 +206,40 @@ def login(client_id: str) -> dict:
     # Exchange auth code for tokens
     import httpx as httpx_sync  # Sync for the CLI context
 
-    print("Exchanging authorization code for access token...")
+    bff = _bff_url()
+    if bff:
+        print(f"Exchanging authorization code via BFF ({bff})...")
+    else:
+        print("Exchanging authorization code directly with Zoom...")
+
     with httpx_sync.Client(timeout=15) as client:
-        resp = client.post(
-            ZOOM_TOKEN_URL,
-            data={
-                "grant_type": "authorization_code",
-                "code": auth_code["code"],
-                "redirect_uri": REDIRECT_URI,
-                "client_id": client_id,
-                "code_verifier": verifier,
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        if bff:
+            resp = client.post(
+                f"{bff}/exchange",
+                json={
+                    "client_id": client_id,
+                    "code": auth_code["code"],
+                    "code_verifier": verifier,
+                    "redirect_uri": REDIRECT_URI,
+                },
+            )
+        else:
+            # Direct path requires ZOOM_CLIENT_SECRET in env
+            client_secret = os.environ.get("ZOOM_CLIENT_SECRET", "")
+            resp = client.post(
+                ZOOM_TOKEN_URL,
+                data={
+                    "grant_type": "authorization_code",
+                    "code": auth_code["code"],
+                    "redirect_uri": REDIRECT_URI,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "code_verifier": verifier,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
         if resp.status_code != 200:
-            # Surface the real reason Zoom rejected the exchange
+            # Surface the real reason the exchange failed
             try:
                 body = resp.json()
             except Exception:
@@ -207,7 +250,8 @@ def login(client_id: str) -> dict:
                 f"  - Scopes in ECHO don't match what the Zoom app was granted\n"
                 f"  - Client ID is incorrect or the app was deactivated\n"
                 f"  - Redirect URI doesn't match (must be exactly "
-                f"{REDIRECT_URI})"
+                f"{REDIRECT_URI})\n"
+                f"  - BFF is unreachable (check VPN, or ECHO_BFF_URL)"
             )
         tokens = resp.json()
 

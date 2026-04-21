@@ -1,0 +1,24 @@
+[Unit]
+Description=ECHO BFF - Zoom OAuth token proxy
+After=network.target
+
+[Service]
+Type=simple
+User=dennis.kittrell
+Group=dennis.kittrell
+WorkingDirectory=/home/dennis.kittrell/echo-bff
+EnvironmentFile=/home/dennis.kittrell/echo-bff/secrets.env
+ExecStart=/home/dennis.kittrell/echo-bff/venv/bin/uvicorn app:app --host 127.0.0.1 --port 3100 --log-level info
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/dennis.kittrell/echo-bff
+
+[Install]
+WantedBy=multi-user.target
