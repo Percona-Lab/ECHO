@@ -12,17 +12,25 @@ from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
 
-from .auth import load_tokens, tokens_valid
+from .auth import AuthServiceUnreachable, load_tokens, tokens_valid
 from .connector import NotConfiguredError, ZoomConnector
 
 
 def _graceful(fn):
-    """Decorator that catches NotConfiguredError and returns a friendly message."""
+    """Decorator that turns common setup/connectivity errors into a friendly
+    message for the AI client instead of a stack trace."""
 
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
+        except AuthServiceUnreachable as e:
+            return (
+                "**ECHO needs VPN access to refresh your session.**\n\n"
+                f"{e}\n\n"
+                "Connect to the Percona VPN and try again — it should take "
+                "less than a second once you're back on."
+            )
         except NotConfiguredError as e:
             return "**ECHO is not set up yet.**\n\n{}\n\nRun `auth_status` for details.".format(e)
 

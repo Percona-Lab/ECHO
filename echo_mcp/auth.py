@@ -79,6 +79,10 @@ def tokens_valid(tokens: dict) -> bool:
     return time.time() < saved_at + expires_in - 60
 
 
+class AuthServiceUnreachable(Exception):
+    """Raised when the BFF is unreachable (likely VPN issue)."""
+
+
 async def refresh_access_token(client_id: str, tokens: dict) -> dict:
     """Use the refresh token to get a new access token.
 
@@ -92,31 +96,42 @@ async def refresh_access_token(client_id: str, tokens: dict) -> dict:
         raise RuntimeError("No refresh token available. Please run: echo-login")
 
     bff = _bff_url()
-    async with httpx.AsyncClient(timeout=15) as client:
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            if bff:
+                resp = await client.post(
+                    f"{bff}/refresh",
+                    json={
+                        "client_id": client_id,
+                        "refresh_token": refresh_token,
+                    },
+                )
+            else:
+                client_secret = os.environ.get("ZOOM_CLIENT_SECRET", "")
+                resp = await client.post(
+                    ZOOM_TOKEN_URL,
+                    data={
+                        "grant_type": "refresh_token",
+                        "refresh_token": refresh_token,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+            resp.raise_for_status()
+            new_tokens = resp.json()
+            _save_tokens(new_tokens)
+            return new_tokens
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
         if bff:
-            resp = await client.post(
-                f"{bff}/refresh",
-                json={
-                    "client_id": client_id,
-                    "refresh_token": refresh_token,
-                },
+            raise AuthServiceUnreachable(
+                f"Cannot reach the ECHO auth service at {bff}. "
+                f"Are you connected to the Percona VPN? "
+                f"ECHO needs VPN access briefly (~once per hour) to refresh your "
+                f"Zoom session. Once refreshed, you can go back off-VPN until the "
+                f"next hour.\n\n(underlying error: {e})"
             )
-        else:
-            client_secret = os.environ.get("ZOOM_CLIENT_SECRET", "")
-            resp = await client.post(
-                ZOOM_TOKEN_URL,
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": refresh_token,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-        resp.raise_for_status()
-        new_tokens = resp.json()
-        _save_tokens(new_tokens)
-        return new_tokens
+        raise
 
 
 def login(client_id: str) -> dict:
