@@ -33,8 +33,8 @@ REDIRECT_URI = f"http://localhost:{REDIRECT_PORT}/callback"
 TOKEN_DIR = Path.home() / ".echo"
 TOKEN_FILE = TOKEN_DIR / "tokens.json"
 
-# Scopes: read own recordings + basic user info
-SCOPES = "recording:read user:read"
+# Scopes: read own recordings + basic user info (granular scope names)
+SCOPES = "cloud_recording:read:list_recording_files cloud_recording:read:recording user:read:user"
 
 
 def _generate_pkce() -> tuple[str, str]:

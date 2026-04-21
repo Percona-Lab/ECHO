@@ -25,7 +25,10 @@ You need a **Zoom OAuth Client ID** from a General App (OAuth 2.0). If you have 
 1. Go to [marketplace.zoom.us](https://marketplace.zoom.us) > **Develop** > **Build App**
 2. Select **General App** (OAuth 2.0)
 3. Set redirect URL to `http://localhost:8090/callback`
-4. Add scopes: `recording:read` and `user:read`
+4. Under **Scopes**, choose **User-managed** and add:
+   - `cloud_recording:read:list_recording_files`
+   - `cloud_recording:read:recording`
+   - `user:read:user`
 5. Activate the app
 6. Copy the **Client ID** (you do not need the Client Secret)
 
