@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "echo",
   "display_name": "ECHO — Zoom Transcript Search",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Search your Zoom meeting transcripts with natural language from any MCP-compatible AI tool.",
   "long_description": "ECHO connects your Zoom cloud recordings to AI assistants via MCP. After a one-time OAuth login, you can ask questions like 'what did we decide in the Q3 planning call?' and get answers drawn from your own meeting transcripts. Tokens stay on your machine; nothing is hosted remotely.",
   "author": {

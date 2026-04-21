@@ -304,6 +304,84 @@ async def meeting_summary(meeting_id: str) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Prompts (slash commands in MCP-compatible clients)
+# ---------------------------------------------------------------------------
+#
+# Every MCP client that supports prompts (Claude Desktop, Claude Code,
+# Cowork) exposes these as slash commands automatically. They are thin
+# wrappers that instruct the assistant to call the right tool and format
+# the output well.
+
+
+@mcp.prompt()
+def echo_status() -> str:
+    """Check your ECHO authentication and connectivity status."""
+    return (
+        "Use the `auth_status` tool to check whether ECHO is authenticated "
+        "with Zoom. Report the status concisely and, if not authenticated, "
+        "tell the user exactly what to do next."
+    )
+
+
+@mcp.prompt()
+def echo_recent(days: str = "30") -> str:
+    """List recent Zoom meetings with cloud recordings.
+
+    Args:
+        days: How many days back to look (default 30, max 30).
+    """
+    return (
+        f"Use the `list_meetings` tool with days={days} to show recent Zoom "
+        f"meetings. Format as a concise list with meeting title, date, and "
+        f"meeting ID. Highlight which ones have transcripts available."
+    )
+
+
+@mcp.prompt()
+def echo_search(query: str) -> str:
+    """Search your Zoom meeting transcripts for a keyword or phrase.
+
+    Args:
+        query: The word or phrase to search for.
+    """
+    return (
+        f"Use the `search_transcripts` tool to find transcripts mentioning "
+        f'"{query}" across the last 30 days of Zoom meetings. Format the '
+        f"results grouped by meeting, with the matching quotes and who said "
+        f"them. If nothing is found, say so plainly."
+    )
+
+
+@mcp.prompt()
+def echo_summary(meeting_id: str) -> str:
+    """Summarize a specific Zoom meeting.
+
+    Args:
+        meeting_id: The Zoom meeting ID (numeric or UUID) to summarize.
+    """
+    return (
+        f"Use the `meeting_summary` tool for meeting {meeting_id} to get the "
+        f"participants and conversation flow. Then produce a concise "
+        f"executive summary: key decisions, action items, and open questions. "
+        f"Attribute action items to specific people."
+    )
+
+
+@mcp.prompt()
+def echo_transcript(meeting_id: str) -> str:
+    """Fetch the full transcript of a Zoom meeting.
+
+    Args:
+        meeting_id: The Zoom meeting ID (numeric or UUID).
+    """
+    return (
+        f"Use the `get_transcript` tool for meeting {meeting_id} and display "
+        f"the full transcript. Preserve speaker attribution and timestamps. "
+        f"If the meeting does not have a transcript, say so."
+    )
+
+
 def main():
     mcp.run()
 
