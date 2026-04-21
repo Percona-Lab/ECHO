@@ -145,10 +145,14 @@ def login(client_id: str) -> dict:
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
+            # Do NOT claim success yet. The token exchange still has to succeed.
+            # The terminal is the source of truth.
             self.wfile.write(
                 b"<html><body style='font-family:system-ui;text-align:center;padding:60px'>"
-                b"<h1>&#9989; ECHO authorized!</h1>"
-                b"<p>You can close this tab and return to your terminal.</p>"
+                b"<h1>Authorization received</h1>"
+                b"<p>ECHO is now exchanging the authorization code for an access token.</p>"
+                b"<p><strong>Check your terminal</strong> for the final result, "
+                b"then you can close this tab.</p>"
                 b"</body></html>"
             )
             done.set()
@@ -178,6 +182,7 @@ def login(client_id: str) -> dict:
     # Exchange auth code for tokens
     import httpx as httpx_sync  # Sync for the CLI context
 
+    print("Exchanging authorization code for access token...")
     with httpx_sync.Client(timeout=15) as client:
         resp = client.post(
             ZOOM_TOKEN_URL,
@@ -190,11 +195,25 @@ def login(client_id: str) -> dict:
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            # Surface the real reason Zoom rejected the exchange
+            try:
+                body = resp.json()
+            except Exception:
+                body = resp.text
+            raise RuntimeError(
+                f"Token exchange failed ({resp.status_code}): {body}\n"
+                f"Common causes:\n"
+                f"  - Scopes in ECHO don't match what the Zoom app was granted\n"
+                f"  - Client ID is incorrect or the app was deactivated\n"
+                f"  - Redirect URI doesn't match (must be exactly "
+                f"{REDIRECT_URI})"
+            )
         tokens = resp.json()
 
     _save_tokens(tokens)
-    print("Authenticated! Tokens saved to ~/.echo/tokens.json")
+    print("\n[OK] Authenticated! Tokens saved to ~/.echo/tokens.json")
+    print("     You can now use ECHO tools from your AI client.")
     return tokens
 
 
