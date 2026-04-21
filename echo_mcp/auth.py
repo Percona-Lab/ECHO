@@ -34,7 +34,7 @@ TOKEN_DIR = Path.home() / ".echo"
 TOKEN_FILE = TOKEN_DIR / "tokens.json"
 
 # Scopes: read own recordings + basic user info (granular scope names)
-SCOPES = "cloud_recording:read:list_recording_files cloud_recording:read:recording user:read:user"
+SCOPES = "cloud_recording:read:content cloud_recording:read:list_user_recordings user:read:user"
 
 
 def _generate_pkce() -> tuple[str, str]:

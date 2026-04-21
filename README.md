@@ -26,8 +26,8 @@ You need a **Zoom OAuth Client ID** from a General App (OAuth 2.0). If you have 
 2. Select **General App** (OAuth 2.0)
 3. Set redirect URL to `http://localhost:8090/callback`
 4. Under **Scopes**, choose **User-managed** and add:
-   - `cloud_recording:read:list_recording_files`
-   - `cloud_recording:read:recording`
+   - `cloud_recording:read:content`
+   - `cloud_recording:read:list_user_recordings`
    - `user:read:user`
 5. Activate the app
 6. Copy the **Client ID** (you do not need the Client Secret)
