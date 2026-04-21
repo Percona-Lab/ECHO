@@ -14,12 +14,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 LIB = HERE / "lib"
 
-# Prefer bundled deps when available
-if LIB.exists():
-    sys.path.insert(0, str(LIB))
-
-# Make the bundled package importable
+# Make the bundled echo_mcp package importable (always needed).
 sys.path.insert(0, str(HERE))
+
+# Bundled deps in lib/ are a LAST-RESORT fallback. If the launcher used
+# uv (or any other mechanism that put deps earlier on sys.path), those
+# should win — the bundled wheels are built for a specific Python
+# version and may fail on others (e.g. pydantic_core's C extension).
+# So we append lib/ to the END.
+if LIB.exists():
+    sys.path.append(str(LIB))
 
 # Empty-string env vars from DXT user_config should behave like "not set"
 for key in ("ZOOM_CLIENT_ID", "ZOOM_SUBDOMAIN"):

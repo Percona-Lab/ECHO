@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "echo",
   "display_name": "ECHO — Zoom Transcript Search",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Search your Zoom meeting transcripts with natural language from any MCP-compatible AI tool.",
   "long_description": "ECHO connects your Zoom cloud recordings to AI assistants via MCP. After a one-time OAuth login, you can ask questions like 'what did we decide in the Q3 planning call?' and get answers drawn from your own meeting transcripts. Tokens stay on your machine; nothing is hosted remotely.",
   "author": {
@@ -17,9 +17,9 @@
     "type": "python",
     "entry_point": "server/main.py",
     "mcp_config": {
-      "command": "python",
+      "command": "bash",
       "args": [
-        "${__dirname}/server/main.py"
+        "${__dirname}/server/launcher.sh"
       ],
       "env": {
         "ZOOM_SUBDOMAIN": "${user_config.subdomain}",
