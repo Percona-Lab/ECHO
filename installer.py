@@ -166,7 +166,7 @@ def step_zoom_oauth(install_dir: Path) -> str | None:
     # If registry didn't find one, ask if they have one
     if not client_id:
         print()
-        if ask_yn("Do you have a Zoom OAuth Client ID?", default=True):
+        if ask_yn("Do you have a Zoom OAuth Client ID?", default=False):
             client_id = ask("Zoom OAuth Client ID", "")
         else:
             print()
