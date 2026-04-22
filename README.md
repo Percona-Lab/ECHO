@@ -1,5 +1,13 @@
 # ECHO - Explore Calls, Hearings & Observations
 
+> ## ⚠️ Project shelved
+>
+> **ECHO is paused until Zoom exposes a user-level OAuth scope for AI Companion meeting summaries (Call Notes).**
+>
+> The original goal was per-user search across your own Zoom Call Notes. Zoom currently only offers admin-level scopes (`meeting_summary:read:admin`) for that data, which conflicts with the user-scoped security posture this project was built around.
+>
+> What exists in this repo still works for **cloud-recorded meetings you host**, but the core Call Notes use case is blocked on Zoom's API. We are waiting on Zoom to add a user-level equivalent (tracked in the [Zoom developer forum](https://devforum.zoom.us/t/add-api-to-retrieve-meeting-summary-and-other-contents-from-ai-companion/98726)) before resuming development.
+
 MCP server for searching your Zoom meeting transcripts from any MCP-compatible AI tool. Part of the [Alpine Toolkit](https://github.com/Percona-Lab).
 
 Uses OAuth 2.0 + PKCE so no secrets ever touch your machine. You log in with your own Zoom account and ECHO can only see your recordings.
