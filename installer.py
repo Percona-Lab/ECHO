@@ -255,6 +255,7 @@ def step_configure_client(install_dir: Path) -> None:
     if has_claude_code:
         if ask_yn("Configure Claude Code?"):
             _merge_mcp_config(claude_settings, "echo", mcp_entry)
+            _install_claude_code_commands(install_dir)
             ok("Claude Code configured")
 
     # Claude Desktop
@@ -267,6 +268,26 @@ def step_configure_client(install_dir: Path) -> None:
     if not has_claude_code and not (claude_desktop and claude_desktop.exists()):
         info("No AI clients detected. Add ECHO to your MCP client config manually:")
         info(f'{DIM}  "echo": {json.dumps(mcp_entry)}{NC}')
+
+
+def _install_claude_code_commands(install_dir: Path) -> None:
+    """Copy ECHO's slash-command wrappers into ~/.claude/commands/.
+
+    MCP prompts don't surface as slash commands in Claude Code, so we
+    install thin Markdown command wrappers that invoke the MCP tools.
+    """
+    src = install_dir / "commands"
+    if not src.exists():
+        return
+    dst = Path.home() / ".claude" / "commands"
+    dst.mkdir(parents=True, exist_ok=True)
+    import shutil
+    count = 0
+    for cmd in src.glob("echo-*.md"):
+        shutil.copy2(cmd, dst / cmd.name)
+        count += 1
+    if count:
+        info(f"Installed {count} slash commands to {dst}")
 
 
 def _merge_mcp_config(path: Path, name: str, entry: dict) -> None:
