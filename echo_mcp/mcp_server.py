@@ -49,6 +49,8 @@ zoom = ZoomConnector()
 
 def _parse_vtt(vtt_text: str) -> list[dict]:
     """Parse a WebVTT transcript into a list of {timestamp, speaker, text} dicts."""
+    # Normalize line endings — Zoom serves CRLF, our regex expects LF
+    vtt_text = vtt_text.replace("\r\n", "\n").replace("\r", "\n")
     blocks = re.split(r"\n\n+", vtt_text.strip())
     entries = []
     for block in blocks:
@@ -73,17 +75,39 @@ def _parse_vtt(vtt_text: str) -> list[dict]:
 
 
 async def _get_transcript_for_meeting(meeting_id: str) -> list[dict] | None:
-    """Fetch and parse the transcript for a meeting, or None if unavailable."""
-    try:
-        rec_data = await zoom.get_meeting_recordings(meeting_id)
-    except Exception:
+    """Fetch and parse the transcript for a meeting, or None if unavailable.
+
+    Uses /users/me/recordings (which our scopes cover) and scans for the
+    matching meeting. Avoids /meetings/{id}/recordings — that endpoint
+    requires a different scope and returns 400 with our user-managed
+    token.
+    """
+    # Search last 30 days (Zoom's max range per request). Should be
+    # enough — transcripts older than that are rarely interesting and
+    # we'd need a wider search strategy anyway.
+    to_date = date.today()
+    from_date = to_date - timedelta(days=30)
+    data = await zoom.list_recordings(
+        from_date=from_date.isoformat(), to_date=to_date.isoformat(), page_size=300
+    )
+
+    target = None
+    for meeting in data.get("meetings", []):
+        mid = str(meeting.get("id") or "")
+        muuid = str(meeting.get("uuid") or "")
+        if meeting_id == mid or meeting_id == muuid:
+            target = meeting
+            break
+
+    if target is None:
         return None
 
     download_url = None
-    for f in rec_data.get("recording_files", []):
+    for f in target.get("recording_files", []):
         if (
             f.get("recording_type") == "audio_transcript"
             or f.get("file_extension", "").upper() == "VTT"
+            or f.get("file_type") == "TRANSCRIPT"
         ):
             download_url = f.get("download_url")
             break
